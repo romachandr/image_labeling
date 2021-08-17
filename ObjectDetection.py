@@ -443,7 +443,7 @@ if __name__ == '__main__':
     # #---
     # video_file = r'videos/192.168.1.105_01_20210807092201_20210807092221.mp4'
     # video_file = r'videos/192.168.1.105_01_20210806184710_20210806184727_small.mp4'
-    video_file = r'videos/192.168.1.105_01_20210805153613_20210805153702_small.mp4'
+    video_file = r'videos/192.168.1.105_01_20210801173120_20210801173139_small.mp4'
     # video_file = r'videos/192.168.1.105_01_20210807092201_20210807092221_small.mp4'
 
     # OD.motion_detection(camera_stream=False, vcap_url='',
@@ -455,7 +455,7 @@ if __name__ == '__main__':
                         stream_from_file=True, video_file=video_file, resize_tuple=(1280, 720),
                         movie_show=True, draw_contours=False, motion_max_count=OD.motion_max_count,
                         save_labels=True,
-                        label_name='car_tigr'
+                        label_name='car'
                         )
 
     #---
