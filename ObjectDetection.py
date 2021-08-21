@@ -7,6 +7,7 @@ import datetime
 import time
 import json
 from Labeling import classLabeling as lbl
+from TF1ObjectDetection import classTF1ObjectDetection as tfd
 
 class classObjectDetection:
 
@@ -20,6 +21,7 @@ class classObjectDetection:
     diff_thrsh = 18
     #---
     folder_moving_objects_images = r'moving_objects_images'
+    folder_detected_objects = r'/mnt/sdb4/romachandr/PycharmProjects/image_labeling/detected_objects'
     labeling_folder = r'images'
     img_param_dict = {'min_object_size': {'w':100, "h":60},
                       'max_inter_dimensions':(640, 360),
@@ -27,6 +29,9 @@ class classObjectDetection:
                       'detection_range':{"x":0, "y":0, "w":640, "h":200},
                       'base_params': {"x": 0, "y": 0, "w": 630, "h": 200},
                       }
+    accepted_categories = ['car', 'person', 'dog', 'cat', 'motorcycle', 'bicycle', 'truck', 'bus']
+    convert_dict = {'car':'car', 'person':'person', 'dog':'animal', 'cat':'animal', 'motorcycle':'motorcycle',
+                    'bicycle':'bicycle', 'truck':'car', 'bus':'car'}
     # img_param_dict = {'min_object_size': {'w':600, "h":300},
     #                   'max_inter_dimensions':(2688, 1520),
     #                   'resize_tuple':(1280, 720),
@@ -36,6 +41,9 @@ class classObjectDetection:
     #---
 
     LBL = lbl()
+    LBL.accepted_categories = accepted_categories
+    LBL.convert_dict = convert_dict
+    TFD = tfd()
 
     def rect_conv(self, rect_base_params, intersection_threshold=intersection_threshold, max_inter_dimensions=None):
         rect_check_params = ((rect_base_params['x'] - intersection_threshold if (rect_base_params['x'] - intersection_threshold)>0 else 0,
@@ -206,8 +214,9 @@ class classObjectDetection:
         return res
 
     def save_pic_with_label(self, image_array,
-                  pic_width, pic_height, pic_depth, label_name,
-                  bndbox_xmin, bndbox_ymin, bndbox_xmax, bndbox_ymax,
+                  pic_width, pic_height, pic_depth, label_name=None,
+                  bndbox_xmin=None, bndbox_ymin=None, bndbox_xmax=None, bndbox_ymax=None,
+                  objects_array=None,
                   BGRtoRBG=True,
                   file_save=True,
                   folder='',
@@ -220,8 +229,12 @@ class classObjectDetection:
         res['crop_res_img'] = crop_res_img
         if file_save==True:
             plt.imsave(path, crop_res_img)
-        self.LBL.label_file_save(folder, filename, path, pic_width, pic_height, pic_depth, label_name,
-                        bndbox_xmin, bndbox_ymin, bndbox_xmax, bndbox_ymax)
+        if objects_array is None:
+            objects_array = [{"label_name":label_name,
+                              "bndbox_xmin":bndbox_xmin, "bndbox_ymin":bndbox_ymin, "bndbox_xmax":bndbox_xmax,
+                              "bndbox_ymax":bndbox_ymax}]
+        self.LBL.label_file_save(folder=folder, filename=filename, path=path, pic_width=pic_width, \
+                                 pic_height=pic_height, pic_depth=pic_depth, objects_array=objects_array)
         return res
 
     def calc_pic_diff(self, frame1, frame2, conv_to_gray=True):
@@ -262,7 +275,7 @@ class classObjectDetection:
                          stream_from_file=False, video_file=None,
                          movie_show=False, resize_tuple=None, draw_contours=False,
                          save_moving_objects=False,
-                         motion_max_count=motion_max_count):
+                         motion_max_count=3000):
         cap = None
         if stream_from_file==True:
             cap = cv2.VideoCapture(video_file)
@@ -342,12 +355,10 @@ class classObjectDetection:
             cap.release()
             cv2.destroyAllWindows()
 
-    def motion_detection_and_labeling(self, camera_stream=False, vcap_url=None,
-                         stream_from_file=False, video_file=None,
-                         movie_show=False, resize_tuple=None, draw_contours=False,
-                         save_labels=True,
-                         label_name='unknown',
-                         motion_max_count=motion_max_count):
+    def motion_detection_and_labeling(self, camera_stream=False, vcap_url=None, stream_from_file=False,
+                                        video_file=None, movie_show=False, resize_tuple=None,
+                                        draw_contours=False, save_labels=True, skip_frames=3,
+                                        label_name='unknown', motion_max_count=3000):
         cap = None
         if stream_from_file==True:
             cap = cv2.VideoCapture(video_file)
@@ -363,6 +374,7 @@ class classObjectDetection:
 
         while_flag = True if stream_from_file == False else (cap.isOpened())
 
+        i = 0
         while while_flag:
             pic_diff = self.calc_pic_diff(frame1, frame2)
             contours = pic_diff["contours"]
@@ -388,23 +400,26 @@ class classObjectDetection:
                                                                       rect_alt_params=rect,
                                       max_inter_dimensions=self.img_param_dict['max_inter_dimensions'])['intersection']
                     if intersection==True:
-                        if save_labels == True:
-                            now = datetime.datetime.now()
-                            file_name = "ailbl_" + now.strftime("%Y%m%d%H%M%S%f")+'_'+str(x)+"x"+str(y)+'.jpg'
-                            folder = self.labeling_folder
-                            path = os.path.join(os.path.join(folder, file_name))
-                            sres = self.save_pic_with_label(image_array=frame1,
-                                                pic_width=frame1.shape[0],
-                                                pic_height=frame1.shape[1],
-                                                pic_depth=3,
-                                                label_name=label_name,
-                                                bndbox_xmin=x, bndbox_ymin=y, bndbox_xmax=x+w, bndbox_ymax=y+h,
-                                                BGRtoRBG=True,
-                                                file_save=True,
-                                                folder=folder,
-                                                filename=file_name,
-                                                path=path, )
-
+                        if (save_labels == True):
+                            if (skip_frames > 0) and (i==skip_frames):
+                                now = datetime.datetime.now()
+                                file_name = "ailbl_" + now.strftime("%Y%m%d%H%M%S%f")+'_'+str(x)+"x"+str(y)+'.jpg'
+                                folder = self.labeling_folder
+                                path = os.path.join(os.path.join(folder, file_name))
+                                sres = self.save_pic_with_label(image_array=frame1,
+                                                    pic_width=frame1.shape[0],
+                                                    pic_height=frame1.shape[1],
+                                                    pic_depth=3,
+                                                    label_name=label_name,
+                                                    bndbox_xmin=x, bndbox_ymin=y, bndbox_xmax=x+w, bndbox_ymax=y+h,
+                                                    BGRtoRBG=True,
+                                                    file_save=True,
+                                                    folder=folder,
+                                                    filename=file_name,
+                                                    path=path, )
+                                i = 0
+                            else:
+                                i += 1
 
                         # if movie_show==True:
                         #     cv2.rectangle(frame1, (x, y), (x + w, y + h), self.rect_color_notif, 2)
@@ -413,6 +428,7 @@ class classObjectDetection:
                             cv2.rectangle(frame1, (x, y), (x + w, y + h), self.rect_color_default, 2)
                             # cv2.putText(frame1, "Status: {}".format('Movement'), (10, 20), cv2.FONT_HERSHEY_SIMPLEX,
                             #            1, (255, 0, 0), 3)
+
 
             if movie_show == True:
                 frame_to_show = cv2.resize(frame1, resize_tuple)  # Downscale to improve frame rate
@@ -436,6 +452,99 @@ class classObjectDetection:
             cap.release()
             cv2.destroyAllWindows()
 
+    def convert_tf_res_to_objects_array(self, detect_res):
+        # detect_res = [{'image_path': None, 'scores': array([0.8194581], dtype=float32), 'classes': [3], 'boxes': [(3, 3, 197, 430)]}]
+        # object = {'label_name':label_name, 'bndbox_xmin':bndbox_xmin, 'bndbox_ymin':bndbox_ymin, \
+        #           'bndbox_xmax':bndbox_xmax, 'bndbox_ymax':bndbox_ymax}
+        detect_res = detect_res[0]
+        objects_array = []
+        for i, cls in enumerate(detect_res['classes']):
+            box = detect_res['boxes'][i]
+            object = {'label_name':self.TFD.category_index[cls]['name'],
+                      'bndbox_xmin':box[1],
+                      'bndbox_ymin':box[0],
+                      'bndbox_xmax':box[3],
+                      'bndbox_ymax':box[2]}
+            objects_array.append(object)
+
+        return objects_array
+
+
+    def video_object_detection_and_labeling(self, camera_stream=False, vcap_url=None, stream_from_file=False,
+                                            video_file=None, movie_show=False, resize_tuple=None,
+                                            save_labels=True, skip_frames=3):
+        cap = None
+        if stream_from_file==True:
+            cap = cv2.VideoCapture(video_file)
+            if (cap.isOpened() == False):
+                print("Error opening video stream or file")
+
+        if camera_stream==True:
+            cap = cv2.VideoCapture(vcap_url)
+
+        ret, frame1 = cap.read()
+
+        while_flag = True if stream_from_file == False else (cap.isOpened())
+
+        i = 0
+        while while_flag:
+            if (save_labels == True):
+                if (skip_frames > 0) and (i == skip_frames):
+                    detect_res = self.TFD.run_detection_img(use_saved_img=False, img_np_array=frame1, img_save=True,
+                                                            visualize_boxes_and_labels=False)
+                    if detect_res is not None:
+                        objects_array = self.convert_tf_res_to_objects_array(detect_res=detect_res)
+
+                        now = datetime.datetime.now()
+                        file_name = "ailbl_" + now.strftime("%Y%m%d%H%M%S%f")+'.jpg'
+                        folder = self.folder_detected_objects
+                        path = os.path.join(os.path.join(folder, file_name))
+
+                        sres = self.save_pic_with_label(image_array=frame1,
+                                                        pic_width=frame1.shape[0],
+                                                        pic_height=frame1.shape[1],
+                                                        pic_depth=3,
+                                                        objects_array=objects_array,
+                                                        BGRtoRBG=True,
+                                                        file_save=True,
+                                                        folder=folder,
+                                                        filename=file_name,
+                                                        path=path)
+
+
+                        if movie_show == True:
+                            for object in objects_array:
+                                cv2.rectangle(frame1, (object['bndbox_xmin'], object['bndbox_ymin']),
+                                              (object['bndbox_xmax'], object['bndbox_ymax']),
+                                              self.rect_color_default, 2)
+                                # cv2.putText(frame1, "Status: {}".format('Movement'), (10, 20), cv2.FONT_HERSHEY_SIMPLEX,
+                                #            1, (255, 0, 0), 3)
+                        i=0
+                else:
+                    i += 1
+
+            if movie_show == True:
+                try:
+                    frame_to_show = cv2.resize(frame1, resize_tuple)  # Downscale to improve frame rate
+                    cv2.imshow("Video", frame_to_show)
+                except:
+                    pass
+
+                ch = cv2.waitKey(5)
+                if ch == 27:
+                    break
+
+            if camera_stream == True:
+                cap = cv2.VideoCapture(vcap_url)
+                ret, frame1 = cap.read()
+                print(f"{datetime.datetime.now()}: got camera frames")
+                cap.release()
+            else:
+                ret, frame1 = cap.read()
+
+        if camera_stream==True:
+            cap.release()
+            cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     OD = classObjectDetection()
@@ -443,7 +552,7 @@ if __name__ == '__main__':
     # #---
     # video_file = r'videos/192.168.1.105_01_20210807092201_20210807092221.mp4'
     # video_file = r'videos/192.168.1.105_01_20210806184710_20210806184727_small.mp4'
-    video_file = r'videos/192.168.1.105_01_20210801173120_20210801173139_small.mp4'
+    video_file = r'videos/car_video.mp4'
     # video_file = r'videos/192.168.1.105_01_20210807092201_20210807092221_small.mp4'
 
     # OD.motion_detection(camera_stream=False, vcap_url='',
@@ -451,11 +560,15 @@ if __name__ == '__main__':
     #                     movie_show=True, draw_contours=False, motion_max_count=OD.motion_max_count,
     #                     save_moving_objects=True)
 
-    OD.motion_detection_and_labeling(camera_stream=False, vcap_url='',
-                        stream_from_file=True, video_file=video_file, resize_tuple=(1280, 720),
-                        movie_show=True, draw_contours=False, motion_max_count=OD.motion_max_count,
-                        save_labels=True,
-                        label_name='car'
-                        )
+    OD.video_object_detection_and_labeling(camera_stream=False, vcap_url='',
+                                           stream_from_file=True, video_file=video_file, resize_tuple=(1280, 720),
+                                           movie_show=True, save_labels=True, skip_frames=5)
+
+    # OD.video_object_detection_and_labeling(camera_stream=False, vcap_url='',
+    #                     stream_from_file=True, video_file=video_file, resize_tuple=(1280, 720),
+    #                     movie_show=True, draw_contours=False, motion_max_count=OD.motion_max_count,
+    #                     save_labels=True, skip_frames=3,
+    #                     label_name='car'
+    #                     )
 
     #---

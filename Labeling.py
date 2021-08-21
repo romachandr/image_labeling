@@ -8,6 +8,9 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 
 class classLabeling:
+    accepted_categories = ['car', 'person', 'dog', 'cat', 'motorcycle', 'bicycle', 'truck', 'bus']
+    convert_dict = {'car':'car', 'person':'person', 'dog':'animal', 'cat':'animal', 'motorcycle':'motorcycle',
+                    'bicycle':'bicycle', 'truck':'car', 'bus':'car'}
     sample_dict_base = {
                         "annotation":{
                             "folder":"train",
@@ -96,7 +99,7 @@ class classLabeling:
         return
 
     def label_file_save(self, folder, filename, path, pic_width, pic_height, pic_depth, objects_array,
-                        delete_encoding_str='<?xml version="1.0" encoding="utf-8"?>'):
+                        delete_encoding_str='<?xml version="1.0" encoding="utf-8"?>\n'):
         # label_name, bndbox_xmin, bndbox_ymin, bndbox_xmax, bndbox_ymax
         xml_dict = self.sample_dict.copy()
         xml_dict['annotation']['folder'] = folder
@@ -107,12 +110,14 @@ class classLabeling:
         xml_dict['annotation']['size']['depth'] = pic_depth
 
         for i, object in enumerate(objects_array):
-            xml_dict['annotation'][f'object{i}'] = copy.deepcopy(self.object_dict)
-            xml_dict['annotation'][f'object{i}']['name'] = object['label_name']
-            xml_dict['annotation'][f'object{i}']['bndbox']['xmin'] = object['bndbox_xmin']
-            xml_dict['annotation'][f'object{i}']['bndbox']['ymin'] = object['bndbox_ymin']
-            xml_dict['annotation'][f'object{i}']['bndbox']['xmax'] = object['bndbox_xmax']
-            xml_dict['annotation'][f'object{i}']['bndbox']['ymax'] = object['bndbox_ymax']
+            if object['label_name'] in self.accepted_categories:
+                label = self.convert_dict[object['label_name']]
+                xml_dict['annotation'][f'object{i}'] = copy.deepcopy(self.object_dict)
+                xml_dict['annotation'][f'object{i}']['name'] = label
+                xml_dict['annotation'][f'object{i}']['bndbox']['xmin'] = object['bndbox_xmin']
+                xml_dict['annotation'][f'object{i}']['bndbox']['ymin'] = object['bndbox_ymin']
+                xml_dict['annotation'][f'object{i}']['bndbox']['xmax'] = object['bndbox_xmax']
+                xml_dict['annotation'][f'object{i}']['bndbox']['ymax'] = object['bndbox_ymax']
 
         # print(xml_dict)
         if delete_encoding_str!= '':
