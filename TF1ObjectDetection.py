@@ -22,7 +22,7 @@ class classTF1ObjectDetection:
     NUM_CLASSES = 90
     PATH_TO_TEST_IMAGES_DIR = 'test_images'
     IMAGE_SIZE = (12, 8)
-    DETECTION_THRESHOLD = 0.70
+    DETECTION_THRESHOLD = 0.50
 
     def model_load(self):
         self.detection_graph = tf.Graph()
@@ -48,7 +48,6 @@ class classTF1ObjectDetection:
                       detected_img_postfix="detect",
                       print_log=False):
         res_arr = []
-        self.model_load()
         TEST_IMAGE_PATHS = sorted([os.path.join(self.PATH_TO_TEST_IMAGES_DIR, img) for img in os.listdir(self.PATH_TO_TEST_IMAGES_DIR) if img.find(detected_img_postfix)<0])
         with self.detection_graph.as_default():
             with tf.Session(graph=self.detection_graph) as sess:
@@ -103,7 +102,6 @@ class classTF1ObjectDetection:
                           detected_img_postfix="detect",
                           print_log=False):
         res_arr = []
-        self.model_load()
         with self.detection_graph.as_default():
             with tf.Session(graph=self.detection_graph) as sess:
                 # Definite input and output Tensors for detection_graph
@@ -182,5 +180,6 @@ class classTF1ObjectDetection:
 if __name__ == '__main__':
     OD = classTF1ObjectDetection()
 
+    OD.model_load()
     res_arr = OD.run_detection_img_folder(img_save=True)
     print(f"res_arr:\n{res_arr}")
