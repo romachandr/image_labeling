@@ -177,35 +177,58 @@ class classLabeling:
 
         return
 
+    def replace_label(self, folder_path, label_old='truck', label_new='car'):
+
+        files_arr = sorted([f for f in listdir(folder_path) if isfile(join(folder_path, f)) and f.find('.xml')>0])
+        # print(files_arr)
+        for file in files_arr:
+            file_path = join(folder_path, file)
+            txt_arr = None
+            with open(file_path, 'rt') as fl:
+                txt_arr = fl.readlines()
+                # print(txt_arr)
+                txt_arr_repl = [txt.replace(label_old, label_new) for txt in txt_arr]
+                # print(txt_arr_repl)
+            with open(file_path, 'wt') as fl:
+                for txt in txt_arr_repl:
+                    fl.writelines(txt)
+        return
+
 
 if __name__ == '__main__':
     LB = classLabeling()
 
-    #---
-    folder = r'c:\Users\Xiaomi\Downloads\test'
-    filename = 'test_100.jpg'
-    path = r'c:\Users\Xiaomi\Downloads\test\test_100.jpg'
-    pic_width = 394
-    pic_height = 500
-    pic_depth = 3
-    objects_array = [{'label_name':'car',
-                    'bndbox_xmin':151,
-                    'bndbox_ymin':71,
-                    'bndbox_xmax':335,
-                    'bndbox_ymax':267},
-                    {'label_name': 'person',
-                    'bndbox_xmin': 52,
-                    'bndbox_ymin': 172,
-                    'bndbox_xmax': 246,
-                    'bndbox_ymax': 302}]
-
-    LB.label_file_save(folder=folder, filename=filename, path=path, pic_width=pic_width, pic_height=pic_height, \
-                       pic_depth=pic_depth, objects_array=objects_array)
-
     # #---
+    # folder = r'c:\Users\Xiaomi\Downloads\test'
+    # filename = 'test_100.jpg'
+    # path = r'c:\Users\Xiaomi\Downloads\test\test_100.jpg'
+    # pic_width = 394
+    # pic_height = 500
+    # pic_depth = 3
+    # objects_array = [{'label_name':'car',
+    #                 'bndbox_xmin':151,
+    #                 'bndbox_ymin':71,
+    #                 'bndbox_xmax':335,
+    #                 'bndbox_ymax':267},
+    #                 {'label_name': 'person',
+    #                 'bndbox_xmin': 52,
+    #                 'bndbox_ymin': 172,
+    #                 'bndbox_xmax': 246,
+    #                 'bndbox_ymax': 302}]
+    #
+    # LB.label_file_save(folder=folder, filename=filename, path=path, pic_width=pic_width, pic_height=pic_height, \
+    #                    pic_depth=pic_depth, objects_array=objects_array)
+    #
+    # # #---
+
     # folder_path = r'c:\Users\Xiaomi\Downloads\dataset\annotations\xmls'
     # LB.drop_encoding_str(folder_path, delete_encoding_str='<?xml version="1.0" encoding="utf-8" ?>')
     # #---
+
+    #---
+    folder_path = r'c:\Users\Xiaomi\Downloads\test'
+    LB.replace_label(folder_path, label_old='car', label_new='car_rom')
+    #---
 
     # #---
     #
